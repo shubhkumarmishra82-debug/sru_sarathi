@@ -1,24 +1,26 @@
 /* =========================================================================
-   REAL CAMPUS MAP (Leaflet + CartoDB tiles)
+   REAL CAMPUS MAP (Leaflet + CartoDB tiles, with a self-contained fallback)
    Every building from SRU_DATA plotted at its approximate real-world
-   coordinates on an actual map, plus a "you are here" marker when
+   coordinates on an actual live map, plus a "you are here" marker when
    location is available. Coordinates are illustrative estimates derived
    from the campus layout, not a surveyed plan — good for orientation;
    each pin's popup links out to Google Maps for the exact walking route.
 
-   Tiles come from CartoDB's free basemaps rather than the raw
-   tile.openstreetmap.org servers — OSM's own tile servers apply usage-
-   policy throttling to sites that get repeat/heavy traffic, which shows
-   up as "loads sometimes, stalls other times". CartoDB is built for
-   exactly this kind of embedding and doesn't need an API key either.
-   A short load timeout + Retry button covers the rare case tiles still
-   stall, instead of leaving a silent spinner forever.
+   Live tiles need a network path to an external tile CDN. Some networks
+   (college WiFi, campus firewalls, certain ISPs) block those domains
+   outright — no tile provider fixes that, since the block is on the
+   visitor's network, not the server. So if live tiles can't load within
+   a few seconds, this automatically swaps to a bundled SVG illustration
+   of the same campus layout — built entirely from data already in this
+   file, no external request involved — so the page is never stuck on a
+   spinner. A "Try live map" button lets the visitor retry any time.
    ========================================================================= */
 
 (function () {
   const mapEl = document.getElementById('campusMap');
+  const fallbackWrap = document.getElementById('campusMapFallback');
+  const fallbackSvg = document.getElementById('fallbackSvg');
   const btnMapLocate = document.getElementById('btnMapLocate');
-  const errEl = document.getElementById('mapLoadError');
   const btnRetry = document.getElementById('btnMapRetry');
   if (!mapEl || typeof L === 'undefined' || !SRU_DATA || !SRU_DATA.buildings) return;
 
@@ -32,15 +34,17 @@
   let loadTimer = null;
   let firstTileArrived = false;
 
-  function showError() {
-    if (errEl) errEl.hidden = false;
+  function showFallback() {
+    mapEl.style.visibility = 'hidden';
+    if (fallbackWrap) fallbackWrap.hidden = false;
   }
-  function hideError() {
-    if (errEl) errEl.hidden = true;
+  function hideFallback() {
+    mapEl.style.visibility = 'visible';
+    if (fallbackWrap) fallbackWrap.hidden = true;
   }
 
   function addTiles() {
-    hideError();
+    hideFallback();
     firstTileArrived = false;
     if (tileLayer) { map.removeLayer(tileLayer); tileLayer = null; }
 
@@ -50,14 +54,45 @@
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>'
     }).addTo(map);
 
-    tileLayer.on('load', () => { firstTileArrived = true; hideError(); clearTimeout(loadTimer); });
-    tileLayer.on('tileerror', () => { if (!firstTileArrived) showError(); });
+    tileLayer.on('load', () => { firstTileArrived = true; hideFallback(); clearTimeout(loadTimer); });
+    tileLayer.on('tileerror', () => { if (!firstTileArrived) showFallback(); });
 
     clearTimeout(loadTimer);
-    loadTimer = setTimeout(() => { if (!firstTileArrived) showError(); }, 8000);
+    loadTimer = setTimeout(() => { if (!firstTileArrived) showFallback(); }, 6000);
   }
   addTiles();
   if (btnRetry) btnRetry.addEventListener('click', addTiles);
+
+  // ---------- self-contained SVG fallback (needs no network at all) ----------
+  function buildFallback() {
+    if (!fallbackSvg) return;
+    const W = 640, H = 460, PAD = 60;
+    const xs = buildings.map(b => b.grid.x), zs = buildings.map(b => b.grid.z);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minZ = Math.min(...zs), maxZ = Math.max(...zs);
+    const sx = x => PAD + ((x - minX) / (maxX - minX || 1)) * (W - PAD * 2);
+    const sy = z => PAD + ((z - minZ) / (maxZ - minZ || 1)) * (H - PAD * 2);
+
+    const bg = `<rect x="0" y="0" width="${W}" height="${H}" fill="#E7E2D4"/>` +
+      `<rect x="${PAD - 20}" y="${PAD - 20}" width="${W - (PAD - 20) * 2}" height="${H - (PAD - 20) * 2}" rx="10" fill="#DDE7DB" stroke="#C9C2AE"/>`;
+
+    const pins = buildings.map(b => {
+      const x = sx(b.grid.x), y = sy(b.grid.z);
+      const initials = b.name.split(/\s+/).filter(w => /^[A-Z]/.test(w)).slice(0, 2).map(w => w[0]).join('') || b.name[0];
+      return `
+        <g class="fallback-pin" data-id="${b.id}">
+          <title>${b.name} — ${b.zone}</title>
+          <circle cx="${x}" cy="${y}" r="9" fill="${b.color}"/>
+          <text x="${x}" y="${y - 14}">${initials}</text>
+        </g>`;
+    }).join('');
+
+    fallbackSvg.innerHTML = bg + pins;
+    fallbackSvg.querySelectorAll('.fallback-pin').forEach(g => {
+      g.addEventListener('click', () => { if (window.SRU_selectBuilding) window.SRU_selectBuilding(g.dataset.id); });
+    });
+  }
+  buildFallback();
 
   function pinIcon(color) {
     return L.divIcon({
@@ -116,6 +151,7 @@
   window.SRU_setMapPlace = function (id) {
     const m = markers[id];
     if (!m) return;
+    if (!fallbackWrap.hidden) return; // fallback is showing — nothing to pan on the live map
     map.setView(m.getLatLng(), 18);
     m.openPopup();
   };

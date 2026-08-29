@@ -57,9 +57,12 @@
     <div class="locator-layout">
       <div id="campus-map-wrap">
         <div id="campusMap"></div>
-        <div id="mapLoadError" class="map-load-error" hidden>
-          Map tiles are taking too long to load.
-          <button id="btnMapRetry" type="button">Retry</button>
+        <div id="campusMapFallback" hidden>
+          <div class="fallback-note">
+            Live map tiles aren't reachable on this network — showing the illustrated layout instead.
+            <button id="btnMapRetry" type="button">Try live map</button>
+          </div>
+          <svg id="fallbackSvg" viewBox="0 0 640 460" preserveAspectRatio="xMidYMid meet"></svg>
         </div>
         <div class="locator-controls">
           <button class="icon-btn" id="btnMapLocate" title="Show my location on the map">📍</button>
