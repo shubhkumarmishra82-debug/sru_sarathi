@@ -1,0 +1,9 @@
+# Tells Railway this is a plain static site served via `serve`.
+[phases.setup]
+nixPkgs = ["nodejs"]
+
+[phases.build]
+cmds = ["npm install"]
+
+[start]
+cmd = "npm start"

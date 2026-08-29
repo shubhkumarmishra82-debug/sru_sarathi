@@ -1,0 +1,12 @@
+{
+  "name": "sru-campus",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SR University Campus Companion — static site",
+  "scripts": {
+    "start": "serve -s . -l ${PORT:-3000}"
+  },
+  "dependencies": {
+    "serve": "^14.2.3"
+  }
+}
