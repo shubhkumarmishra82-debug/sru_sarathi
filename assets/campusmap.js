@@ -1,5 +1,5 @@
 /* =========================================================================
-   REAL CAMPUS MAP (Leaflet + CartoDB tiles, with a self-contained fallback)
+   REAL CAMPUS MAP (Leaflet + OpenStreetMap tiles, with a self-contained fallback)
    Every building from SRU_DATA plotted at its approximate real-world
    coordinates on an actual live map, plus a "you are here" marker when
    location is available. Coordinates are illustrative estimates derived
@@ -48,10 +48,9 @@
     firstTileArrived = false;
     if (tileLayer) { map.removeLayer(tileLayer); tileLayer = null; }
 
-    tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      subdomains: 'abcd',
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>'
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
     }).addTo(map);
 
     tileLayer.on('load', () => { firstTileArrived = true; hideFallback(); clearTimeout(loadTimer); });
